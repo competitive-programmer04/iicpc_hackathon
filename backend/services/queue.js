@@ -260,6 +260,7 @@ class SubmissionQueueManager {
               console.log(`calling StopLoad() of the go grpc server at the port ${port}`);
               client.StopLoad({Message:"Stop the test"},(err,response)=>{
                 //console.log(`we stop the test ${response.Message}`);
+                console.log("stopping the go bots");
                 eventBus.emit(`stream:${submissionId}`,{
                   progress:100,
                   completed:true,
