@@ -204,10 +204,10 @@ class SubmissionQueueManager {
   //     });
   //   });
   // }
-  async triggerBotFleetandStream(port, submissionId){
+  async triggerBotFleetAndStream(port, submissionId){
     return new Promise((resolve,reject)=>{
       console.log(`calling StartLoad() of the go grpc server at the port ${port}`);
-      client.StartLoad({URL:"ws://localhost:8080/trade"},(err,response)=>{
+      client.StartLoad({URL:`ws://localhost:${port}/trade`},(err,response)=>{
         if(err!==null){
           console.log("failed to start load due to the error ",err);
           return reject(err);
@@ -221,7 +221,7 @@ class SubmissionQueueManager {
             multi.lRange("telemetry_queue",0,-1);
             multi.del("telemetry_queue");
             const redisResult=await multi.exec();
-            const rawData=redisResult[0][1];
+            const rawData=redisResult[0]||[];
             let totalRequestSend=rawData.length;
             let successfulRequests=0;
             let latencies=[];
@@ -247,14 +247,19 @@ class SubmissionQueueManager {
               log:`[Telemetry] Load ${throughput} tps. p99 Latency ${p99_lat}ms`
             });
             const currentTime=new Date();
-            await tsClient.query(`insert into metrics_trading_engine (submission_id,recorded_at,time_second,tps,p50,p99,accuracy) values($1,$2,$3,$4,$5,$6,$7)`,[submissionId,currentTime,secondPassed,throughput,
+            try{
+              await tsClient.query(`insert into metrics_trading_engine (submission_id,recorded_at,time_second,tps,p50_lat,p99_lat,accuracy) values($1,$2,$3,$4,$5,$6,$7)`,[submissionId,currentTime,secondPassed,throughput,
               p50_lat,p99_lat,accuracy
             ]);
+            }catch(err){
+              console.log("some error occur while storing data in timescaledb ",err);
+            }
              if(secondPassed>5&&throughput==0){
               console.log("[Engine Crashed] Throughput died to 0! Engine died!");
               clearInterval(telemetryInterval);
+              console.log(`calling StopLoad() of the go grpc server at the port ${port}`);
               client.StopLoad({Message:"Stop the test"},(err,response)=>{
-                console.log(`we stop the test ${response.Message}`);
+                //console.log(`we stop the test ${response.Message}`);
                 eventBus.emit(`stream:${submissionId}`,{
                   progress:100,
                   completed:true,

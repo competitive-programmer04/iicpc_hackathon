@@ -1,5 +1,5 @@
 # We use a slim, stable version of Ubuntu as our base OS
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Avoid prompt dialogs during installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -20,6 +20,8 @@ WORKDIR /app
 
 # Switch to the non-root user for security (Crucial Sandboxing Standard!)
 USER sandbox_user
+
+EXPOSE 8080
 
 # Default command (will be overridden during volume mount execution)
 CMD ["/app/my_engine"]

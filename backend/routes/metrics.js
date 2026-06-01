@@ -1,7 +1,7 @@
 import express from "express";
-import { tsClient} from "../server";
+import { tsClient} from "../server.js";
 
-const router=express.router();
+const router=express.Router();
 
 router.get("/report/:submission_id",async (req,res)=>{
     try{

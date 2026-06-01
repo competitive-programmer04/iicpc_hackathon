@@ -66,7 +66,7 @@ router.post('/submit', verifyToken, upload.single('submission_file'), async (req
       binaryPath: finalPath
     });
 
-    await tsClient.query(`insert into submissions (team_id,submission_id) values($1,$2)`,{teamId,submissionId});
+    await tsClient.query(`insert into submissions (team_id,submission_id) values($1,$2)`,[teamId,submissionId]);
 
     // Fast, responsive payload returned to the frontend
     return res.status(201).json({
