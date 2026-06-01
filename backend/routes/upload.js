@@ -67,6 +67,7 @@ router.post('/submit', verifyToken, upload.single('submission_file'), async (req
     });
 
     await tsClient.query(`insert into submissions (team_id,submission_id) values($1,$2)`,[teamId,submissionId]);
+    console.log("successfully created submissions table")
 
     // Fast, responsive payload returned to the frontend
     return res.status(201).json({
