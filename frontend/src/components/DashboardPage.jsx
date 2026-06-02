@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable'; // FIX 1: Explicit import for fail-safe Vite bundling
 import './DashboardPage.css';
 
-// ── CUSTOM HIGH-PERFORMANCE SVG CHART COMPONENT (Zero-Dependency) ──
+// ── CUSTOM HIGH-PERFORMANCE SVG CHART ──
 function CustomTelemetryChart({ data }) {
   if (data.length < 2) {
     return (
@@ -54,7 +54,6 @@ function CustomTelemetryChart({ data }) {
       {points.map((p, i) => (
         <g key={i} className="chart-dot-group">
           <circle cx={p.x} cy={p.y} r="4" fill="#818cf8" stroke="#121212" strokeWidth="1.5" />
-          {/* Subtle tooltip trigger (shows value on small hover) */}
           <title>{`${p.tps.toLocaleString()} TPS at ${p.label}`}</title>
         </g>
       ))}
@@ -69,21 +68,51 @@ function CustomTelemetryChart({ data }) {
   );
 }
 
-// FIX 1: Added 'onViewLeaderboard' prop in function arguments
-export default function DashboardPage({ activeTest, onBackToUpload, onViewLeaderboard }) {
+export default function DashboardPage({ activeTest, onBackToUpload, onViewLeaderboard, userToken }) {
   const [progress, setProgress] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('CONNECTING'); 
   
   const [telemetryData, setTelemetryData] = useState([]);
-  const [currentMetrics, setCurrentMetrics] = useState({ tps: 0, p50: 0, p90: 0, p99: 0 });
+  const [currentMetrics, setCurrentMetrics] = useState({ tps: 0, p50: 0, p90: 0, p99: 0, accuracy: 100 });
   const [logs, setLogs] = useState([]);
 
   // Final Summary Report
   const [finalReport, setFinalReport] = useState(null);
+  
+  // FIX 2: State to show/hide the summary overlay dynamically
+  const [showSummary, setShowSummary] = useState(false);
+
+  const fetchDatabaseReport = async () => {
+    try {
+      console.log(`[SYSTEM] Fetching database analytical report for: ${activeTest.submissionId}`);
+      const response = await fetch(`http://localhost:3000/api/v1/submissions/report/${activeTest.submissionId}`, {
+        headers: {
+          'Authorization': `Bearer ${userToken}`
+        }
+      });
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setFinalReport(result.data); 
+        setShowSummary(true); // Automatically slide up the report card once fetched!
+      } else {
+        console.error("Failed to retrieve SQL metrics:", result.message);
+      }
+    } catch (err) {
+      console.error("Database connection failed during report compilation:", err);
+    }
+  };
 
   useEffect(() => {
-    // 1. Establish secure Server-Sent Events (SSE) connection [2]
+    if (activeTest.preCompletedReport) {
+      setProgress(100);
+      setIsCompleted(true);
+      setConnectionStatus('CLOSED');
+      fetchDatabaseReport(); 
+      return;
+    }
+
     const streamUrl = `http://localhost:3000/api/v1/submissions/stream?teamId=${activeTest.teamId}&submissionId=${activeTest.submissionId}`;
     const eventSource = new EventSource(streamUrl);
 
@@ -92,7 +121,6 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
       setConnectionStatus('STREAMING');
     };
 
-    // 2. Map incoming stream data to states [2]
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -107,14 +135,15 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
             tps: data.metrics.tps,
             p50: data.metrics.p50,
             p90: data.metrics.p90,
-            p99: data.metrics.p99
+            p99: data.metrics.p99,
+            accuracy: data.metrics.accuracy
           });
 
           const newTick = {
             time: `${data.progress / 10}s`,
             tps: data.metrics.tps
           };
-          setTelemetryData((prev) => [...prev.slice(-15), newTick]); // Keeps last 15 points on the graph
+          setTelemetryData((prev) => [...prev.slice(-15), newTick]);
         }
 
         if (data.completed) {
@@ -122,7 +151,7 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
           eventSource.close(); [2]
           setConnectionStatus('CLOSED');
           setIsCompleted(true);
-          setFinalReport(data.report);
+          fetchDatabaseReport(); 
         }
 
       } catch (error) {
@@ -141,7 +170,7 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
     };
   }, [activeTest]);
 
-  // PDF Generator Script (Professional format using jsPDF + AutoTable)
+  // FIX 1: Explicitly call autoTable function to bypass browser-specific bundling issues
   const handleDownloadPDF = () => {
     if (!finalReport) return;
 
@@ -162,15 +191,15 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
 
     const tableColumns = ["Benchmark Evaluation Metric", "Recorded Performance Value"];
     const tableRows = [
-      ["Peak Throughput (Peak TPS)", `${finalReport.peakTps} orders/sec`],
-      ["Median Latency (p50)", finalReport.avgLatencyP50],
-      ["Worst-Case Latency (p99)", finalReport.avgLatencyP99],
-      ["Matching Orderbook Correctness (%)", finalReport.correctnessScore],
-      ["Sandbox Stability Status", finalReport.stability],
-      ["Final Composite Benchmark Score", `${finalReport.compositeScore} / 1000`]
+      ["Peak Throughput (Peak TPS)", `${parseInt(finalReport.peak_tps).toLocaleString()} orders/sec`],
+      ["Median Latency (p50)", `${finalReport.avg_p50_latency} ms`],
+      ["Worst-Case Latency (p99)", `${finalReport.avg_p99_latency} ms`],
+      ["Matching Orderbook Correctness (%)", `${finalReport.final_accuracy}%`],
+      ["Final Composite Benchmark Score", `${finalReport.composite_score} / 1000`]
     ];
 
-    doc.autoTable({
+    // Calling the explicit ES Module autoTable function
+    autoTable(doc, {
       startY: 65,
       head: [tableColumns],
       body: tableRows,
@@ -213,6 +242,10 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
           <span className="metric-label">p99 Latency (Max)</span>
           <span className="metric-value text-rose">{currentMetrics.p99} ms</span>
         </div>
+        <div className="metric-box">
+          <span className="metric-label">Matching Accuracy</span>
+          <span className="metric-value text-gold">{currentMetrics.accuracy}%</span>
+        </div>
       </div>
 
       {/* Custom High-Performance SVG Chart */}
@@ -233,29 +266,39 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
         </div>
       </div>
 
-      {/* Final Summary Card */}
-      {isCompleted && finalReport && (
+      {/* FLOATING SUMMARY BUTTON: Appears when test completes but modal is closed */}
+      {isCompleted && !showSummary && (
+        <button className="floating-summary-btn" onClick={() => setShowSummary(true)}>
+          📊 View Test Summary
+        </button>
+      )}
+
+      {/* Final Summary Card Popup */}
+      {isCompleted && finalReport && showSummary && (
         <div className="summary-overlay">
           <div className="summary-card">
+            {/* CLOSE BUTTON (X) TO DISMISS THE MODAL OVERLAY */}
+            <button className="close-modal-btn" onClick={() => setShowSummary(false)}>✕</button>
+
             <h2>🏆 Benchmark Performance Summary</h2>
             <p>Congratulations, your matching engine successfully completed the stress testing suite [1, 2]!</p>
             
             <div className="report-grid">
               <div className="report-item">
                 <strong>Peak Throughput:</strong>
-                <span>{finalReport.peakTps} TPS</span>
+                <span>{parseInt(finalReport.peak_tps).toLocaleString()} TPS</span>
               </div>
               <div className="report-item">
                 <strong>Avg Latency (p99):</strong>
-                <span>{finalReport.avgLatencyP99}</span>
+                <span>{finalReport.avg_p99_latency} ms</span>
               </div>
               <div className="report-item">
                 <strong>Correctness:</strong>
-                <span>{finalReport.correctnessScore}</span>
+                <span>{finalReport.final_accuracy}%</span>
               </div>
               <div className="report-item">
-                <strong>Stability:</strong>
-                <span>{finalReport.stability}</span>
+                <strong>Composite Score:</strong>
+                <span style={{color: '#818cf8'}}>{finalReport.composite_score} / 1000</span>
               </div>
             </div>
 
@@ -263,7 +306,6 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
               <button onClick={handleDownloadPDF} className="download-pdf-btn">
                 Download PDF Report
               </button>
-              {/* FIX 2: Added View Leaderboard action button */}
               <button onClick={onViewLeaderboard} className="view-leaderboard-btn">
                 View Leaderboard
               </button>

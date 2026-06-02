@@ -227,8 +227,8 @@ class SubmissionQueueManager {
             let latencies=[];
             for(let data of rawData){
               const parts=data.split(",");
-              const latency=parts[0];
-              const success=parts[1];
+              const latency=parseInt(parts[0]);
+              const success=parseInt(parts[1]);
               if(success==1){
                 successfulRequests++;
                 latencies.push(latency);
@@ -244,6 +244,10 @@ class SubmissionQueueManager {
               progress: Math.min(secondPassed*2,99),
               completed:false,
               metrics:{tps:throughput,p50:p50_lat,p99: p99_lat,accuracy:accuracy},
+              // peakTps:throughput,
+              // avgLatencyP50:p50_lat,
+              // avgLatencyP99:p99_lat,
+              // correctnessScore:accuracy,
               log:`[Telemetry] Load ${throughput} tps. p99 Latency ${p99_lat}ms`
             });
             const currentTime=new Date();
@@ -254,7 +258,7 @@ class SubmissionQueueManager {
             }catch(err){
               console.log("some error occur while storing data in timescaledb ",err);
             }
-             if(secondPassed>5&&throughput==0){
+             if(secondPassed>5&&(throughput==0||accuracy<50||p99_lat>2000)){
               console.log("[Engine Crashed] Throughput died to 0! Engine died!");
               clearInterval(telemetryInterval);
               console.log(`calling StopLoad() of the go grpc server at the port ${port}`);
@@ -269,6 +273,7 @@ class SubmissionQueueManager {
                     peakTps:"check the final report",
                     avgLatencyP50:"check the final report",
                     avgLatencyP99:"check the final report",
+                    correctnessScore:"check the final report",
                     stability:"crashed"
                   }
                 });

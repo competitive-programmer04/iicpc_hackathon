@@ -76,6 +76,7 @@ router.post('/submit', verifyToken, upload.single('submission_file'), async (req
       payload: {
         filename: safeName,
         teamId: teamId,
+        submissionId:submissionId,
         submittedAt: new Date().toISOString()
       }
     });
