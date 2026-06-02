@@ -55,7 +55,8 @@ router.post('/submit', verifyToken, upload.single('submission_file'), async (req
     // 3. Move file from temp disk store to permanent uploads path
     fs.renameSync(tempPath, finalPath);
 
-    const teamId = req.user?.uid || 'anonymous';
+    //const teamId = req.user?.uid || 'anonymous';
+    const teamId=req.user.email?req.user.email.split("@")[0]:"anonymous";
     const submissionId = Date.now().toString(); 
 
     // 4. ENQUEUE BENCHMARK JOB IN FIFO SCHEDULER
