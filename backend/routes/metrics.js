@@ -10,22 +10,25 @@ router.get("/report/:submission_id",async (req,res)=>{
     round(avg(p50_lat)::numeric,2) as avg_p50_latency,
     round(avg(p99_lat)::numeric,2) as avg_p99_latency,
     round(avg(accuracy)::numeric,2) as final_accuracy,
-    round((max(tps)*(avg(accuracy)/100.0))-(avg(p99_lat)*10)::numeric,0) as composite_score,
+    round((max(tps)*(avg(accuracy)/100.0))-(avg(p99_lat)*10)::numeric,0) as composite_score
     from metrics_trading_engine where submission_id=$1 group by submission_id;
     `; 
     const result=await tsClient.query(query,[req.params.submission_id]);
     if(result.rows.length==0){
         return res.status(404).json({
-            "message":"No data found"
+            "message":"No data found",
+            "success":false
         })
     }
     return res.status(200).json({
-        "data":result.rows[0]
+        "data":result.rows[0],
+        "success":true,
     })
     }catch(err){
         console.log(err);
         return res.status(500).json({
-            "message":"database error"
+            "message":"database error",
+            "success":false
         })
     }
 });
@@ -49,11 +52,13 @@ router.get("/leaderboard",async (req,res)=>{
     `;
     const result=await tsClient.query(query);
     return res.status(200).json({
-        "data":result.rows
+        "data":result.rows,
+        "success":true
     })
     }catch(err){
         return res.status(500).json({
-            "message":"database error"
+            "message":"database error",
+            "success":false
         })
     }
 });

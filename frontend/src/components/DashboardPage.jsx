@@ -18,8 +18,8 @@ function CustomTelemetryChart({ data }) {
   const height = 250;
   const padding = 40;
   const tpsValues = data.map((d) => d.tps);
-  const maxTps = Math.max(...tpsValues, 45000);
-  const minTps = Math.min(...tpsValues, 20000);
+  const maxTps = Math.max(...tpsValues, 1500);
+  const minTps = Math.min(...tpsValues, 0);
   const tpsRange = maxTps - minTps || 1;
 
   const points = data.map((d, index) => {
@@ -58,9 +58,9 @@ function CustomTelemetryChart({ data }) {
         </g>
       ))}
 
-      <text x={padding - 10} y={padding + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor(maxTps / 1000)}k</text>
-      <text x={padding - 10} y={height / 2 + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor((maxTps + minTps) / 2000)}k</text>
-      <text x={padding - 10} y={height - padding + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor(minTps / 1000)}k</text>
+      <text x={padding - 10} y={padding + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor(maxTps / 10)}k</text>
+      <text x={padding - 10} y={height / 2 + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor((maxTps + minTps) / 10)}k</text>
+      <text x={padding - 10} y={height - padding + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor(minTps / 10)}k</text>
 
       <text x={padding} y={height - padding + 20} fill="#666" fontSize="10" textAnchor="middle">Start</text>
       <text x={width - padding} y={height - padding + 20} fill="#666" fontSize="10" textAnchor="middle">Active</text>

@@ -123,7 +123,7 @@ app.get("/", (_req, res) => {
   });
 });
 
-app.use("/api",metricsRouter)
+app.use("/api/v1/submissions",metricsRouter)
 
 // 3. LISTEN TO PORT
 app.listen(PORT, () => {
